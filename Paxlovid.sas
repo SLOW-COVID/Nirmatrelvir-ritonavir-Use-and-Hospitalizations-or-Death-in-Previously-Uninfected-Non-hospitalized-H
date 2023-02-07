@@ -15,7 +15,7 @@ run;
 ods graphics off;
 
 
-/******table 1*******/
+/******Figure 2*******/
 proc freq data=table2;
 table group*incident/nocol norow nopercent;
 run;
@@ -31,7 +31,7 @@ proc genmod data=table;
  lsmeans group / diff cl;
 run;
 %mend t2;
-/******table 2*******/
+/******Figure 3*******/
 title;
 proc freq data=table2;
 table group*incident/nocol norow nopercent;
@@ -214,7 +214,7 @@ run;
 
 
 
-/*Figure*/
+/******Figure 4*******/
  %macro km(dsin = bmt, timevar = t,trt = group,censorvar = status, censorval = 0,kmout = plein, ); 
  ods output ProductLimitEstimates = &kmout; 
  proc lifetest data = &dsin ATRISK ; 
