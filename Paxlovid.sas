@@ -266,13 +266,7 @@ run;
  ylab = %str(Pain Intensity), ystart = 0, yend = 10, yinc = 1, 
  yerrorlower = l, yerrorupper = u, surverr = surverr, 
  xlab = %str(Time), xstart = 1, xend = 8, xinc = 1); 
-
-
-/****************************************************** 
- Create template kmplot for KM plot 
-/*****************************************************/ 
-
-proc template; 
+ proc template; 
  define statgraph kmplot; 
  begingraph; 
  %if "&title1" ne "" %then %do; entrytitle "&title1"; %end; 
