@@ -25,11 +25,6 @@ proc freq data=table;
 title1 "&where.";
 table group*incident/nocol norow nopercent;
 run;
-proc genmod data=table;
- class group (ref='control');
- model incident(event='1') = group / dist=binomial link=identity;
- lsmeans group / diff cl;
-run;
 %mend t2;
 /******table 2*******/
 title;
