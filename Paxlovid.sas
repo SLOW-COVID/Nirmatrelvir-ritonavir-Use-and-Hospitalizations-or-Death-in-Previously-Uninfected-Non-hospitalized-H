@@ -25,6 +25,11 @@ proc freq data=table;
 title1 "&where.";
 table group*incident/nocol norow nopercent;
 run;
+proc genmod data=table;
+ class group (ref='control');
+ model incident(event='1') = group / dist=binomial link=identity;
+ lsmeans group / diff cl;
+run;
 %mend t2;
 /******table 2*******/
 title;
@@ -206,3 +211,221 @@ proc template;
    endgraph;
   end;
 run;
+
+
+
+/*Figure*/
+ %macro km(dsin = bmt, timevar = t,trt = group,censorvar = status, censorval = 0,kmout = plein, ); 
+ ods output ProductLimitEstimates = &kmout; 
+ proc lifetest data = &dsin ATRISK ; 
+ time &Timevar * &censorvar(&censorval); 
+ strata &trt/ test = logrank; 
+ run; 
+ ods output close; 
+ proc sort data = &kmout; 
+ by &trt &timevar; 
+ run; 
+
+ data &kmout; 
+ set &kmout; 
+ where Observedevents is not missing; 
+ by &trt &timevar; 
+ retain surv stde; 
+ if t = 0 then do; surv = survival; stde = 0;end; 
+ if survival ne . then do; surv = survival; if stderr ne . then stde = stderr;end; 
+ if censor = 1 then do; censored = surv; end; 
+ l = surv - stde; u = surv + stde; 
+ label T = 'Disease Free Time' l = 'Survival Est. - stderr' 
+ u = 'Survival Est. + stderr'; 
+ run; 
+
+ proc sql; 
+ create table &kmout as select *, max(&timevar) as maxt from &kmout 
+ group by &trt order by &trt, &timevar; 
+ run; 
+%mend; 
+
+%macro style1(cc1 = black, cc2 = black, cc3 = black, cc4 = black, 
+ marker1 = circle, marker2 = triangle, marker3 = square, 
+ marker4 = circlefilled); 
+ proc template; 
+ define style style1; 
+ %do i = 1 %to 4; 
+ style GraphData&i /contrastcolor = &&cc&i color = &&cc&i 
+ markersymbol = "&&marker&i" Linestyle = &i; 
+ %end; 
+ end; 
+%mend; 
+
+
+%macro kmplot (time = time, survival = survival, censored = censored, 
+ tatrisk = time, natrisk = natrisk, atevent = atevent, group = trt, linethick = 2, 
+ legendloc = inside, legendpos = %str(HALIGN = left VALIGN = bottom), 
+ title1 = %str(Product-Limit Survival Estimates), 
+ title2 = %str(With Number of AML Subjects at Risk), 
+ ylab = %str(Pain Intensity), ystart = 0, yend = 10, yinc = 1, 
+ yerrorlower = l, yerrorupper = u, surverr = surverr, 
+ xlab = %str(Time), xstart = 1, xend = 8, xinc = 1); 
+
+
+/****************************************************** 
+ Create template kmplot for KM plot 
+/*****************************************************/ 
+
+proc template; 
+ define statgraph kmplot; 
+ begingraph; 
+ %if "&title1" ne "" %then %do; entrytitle "&title1"; %end; 
+ %if "&title2" ne "" %then %do; entrytitle "&title2"/textattrs=(size=8); %end; 
+ layout lattice / columns=1 rows=3 rowweights= (0.75 0.125 0.125) columndatarange=union;
+ layout overlay/yaxisopts=(display= all label = "&ylab" labellattrs=(size=8)
+ linearopts=(tickvaluepriority = true 
+ tickvaluesequence = (start = &ystart end = &yend increment=&yinc) )) 
+ xaxisopts=(label = "&xlab" linearopts=(tickvaluepriority = true 
+ tickvaluelist=&xinc));
+ stepplot x = &time y = &survival / group = &group name='s' 
+ LINEATTRS = (THICKNESS = &linethick); 
+ %if "&yerrorlower" ne "" and "&yerrorupper" ne "" %then %do; 
+ scatterplot x = &time y = &surverr/ group = &group 
+ yerrorlower = &yerrorlower 
+ yerrorupper = &yerrorupper name = "x" markerattrs=(symbol = plus) 
+ ERRORBARATTRS = (THICKNESS = &linethick); 
+ %end; 
+ endlayout; 
+ Layout Overlay / walldisplay=none xaxisopts=(display=none griddisplay=off displaySecondary=none) 
+ x2axisopts=(display=none griddisplay=off displaySecondary=none); 
+ AxisTable Value=&natrisk X=&tatrisk /class=&group 
+ ValueAttrs=(size=8 ) labelattrs=(size = 8) display=(label values) 
+ SHOWMISSING= false
+ headerlabel= "No. of at risk" headerlabelattrs=(size=10) valuehalign=center; 
+ endlayout;
+ Layout Overlay / walldisplay=none xaxisopts=(display=none griddisplay=off displaySecondary=none) 
+ x2axisopts=(display=none griddisplay=off displaySecondary=none); 
+ AxisTable Value=&atevent X=&tatrisk /class=&group 
+ ValueAttrs=(size=8 ) labelattrs=(size = 8) display=(label values) 
+ SHOWMISSING= false
+ headerlabel= "No. of events" headerlabelattrs=(size=10) valuehalign=center; 
+ endlayout;
+ endlayout;
+ endgraph; end; 
+ run; 
+%mend; 
+
+%macro kmplot0 (time = time, survival = survival, censored = censored, 
+ tatrisk = time, natrisk = natrisk, atevent = atevent, group = trt, linethick = 2, 
+ legendloc = inside, legendpos = %str(HALIGN = left VALIGN = bottom), 
+ title1 = %str(Product-Limit Survival Estimates), 
+ title2 = %str(With Number of AML Subjects at Risk), 
+ ylab = %str(Pain Intensity), ystart = 0, yend = 10, yinc = 1, 
+ yerrorlower = l, yerrorupper = u, surverr = surverr, 
+ xlab = %str(Time), xstart = 1, xend = 8, xinc = 1); 
+ proc template; 
+ define statgraph kmplot; 
+ begingraph; 
+ %if "&title1" ne "" %then %do; entrytitle "&title1"; %end; 
+ %if "&title2" ne "" %then %do; entrytitle "&title2"/textattrs=(size=8); %end; 
+ layout overlay/yaxisopts=(display= all label = "&ylab" 
+ linearopts=(tickvaluepriority = true 
+ tickvaluesequence = (start = &ystart end = &yend increment=&yinc) )) 
+ xaxisopts=(label = "&xlab" linearopts=(tickvaluepriority = true 
+ tickvaluelist=&xinc));
+ stepplot x = &time y = &survival / group = &group name='s' 
+ LINEATTRS = (THICKNESS = &linethick); 
+ %if "&yerrorlower" ne "" and "&yerrorupper" ne "" %then %do; 
+ scatterplot x = &time y = &surverr/ group = &group 
+ yerrorlower = &yerrorlower 
+ yerrorupper = &yerrorupper name = "x" markerattrs=(symbol = plus) 
+ ERRORBARATTRS = (THICKNESS = &linethick); 
+ %end; 
+ discretelegend 's' /border = false location = &legendloc &legendpos; 
+ endlayout; 
+ endgraph; end; 
+ run; 
+%mend; 
+
+%km(dsin = bmt, kmout = plein); 
+
+ods graphics on;
+ proc lifetest data = BMT method=KM  plots=survival(cb atrisk=0 to 30 by 10) outsurv=survival_data notable  ; 
+ time T * Status(0); 
+ strata group/ test = logrank; 
+ run; 
+ods graphics off;
+
+data atrisk; 
+ do group = 1 to 2; 
+ do t = 3, 5, 10, 15, 20, 25, 30; output; end; 
+ end; 
+run; 
+data aterr; 
+ do group = 1 to 2; 
+ do t = 3, 5, 10, 15, 20, 25, 30; output; end; 
+ end; 
+run; 
+data atevent; 
+ do group = 1 to 2; 
+ do t = 3, 5, 10, 15, 20, 25, 30; output; end; 
+ end; 
+run; 
+data ple; 
+ merge plein atrisk (in = b) aterr (in = c) atevent(in = d); 
+ by group t; if b then atr = 1; if c then aterr = 1; if d then ateve = 1; 
+run; 
+data ple; 
+ set ple; by group t; retain atrisk mt; 
+ if t = 0 then do; atrisk = numberatrisk; mt = maxt;end; 
+ if numberatrisk ne . then atrisk = numberatrisk; 
+ if maxt = . then maxt = mt; drop mt; 
+run; 
+data ple; 
+ set ple; by group t; retain sv ll uu; 
+ if surv ne . then sv = surv; if surv = . and t <= maxt then surv = sv; 
+ if l ne . then ll = l; if l = . and t <= maxt then l = ll; 
+ if u ne . then uu = u; if u = . and t <= maxt then u = uu; drop sv ll uu; 
+run; 
+data ple; 
+ set ple; 
+ retain et;
+ if t = 0 then et=0; 
+ if ateve ne 1 then atevent = .;
+ if ateve eq 1 and atevent ne . then do;ets=et;et=atevent;atevent=atevent-ets;end;
+ if atr ne 1 or atevent eq . then atrisk = .; if atr = 1 and atrisk = . then atrisk = .; 
+ if t > maxt then atrisk = 0; 
+ format atrisk 4.; 
+ surverr = surv; if aterr ne 1 then do; surverr = .; l = .; u = .; end; 
+ format atrisk 4.; 
+drop et ets;
+run; 
+%style1(cc1 = blue, cc2 = red, cc3 = black, marker1 = circlefilled, 
+ marker2 = trianglefilled, marker3 = square); 
+quit;
+
+ods listing gpath="" image_dpi=500;
+ods graphics on /LINEPATTERNOBSMAX=12200;
+%kmplot(time = t, survival = surv, censored = censored, 
+ tatrisk = t, natrisk = atrisk,  atevent = atevent, group = group, linethick = 1, 
+ title1 = %str(), 
+ title2 = %str(), 
+ ylab = %str(Percentage of patients free from hospitalization or death ), 
+ legendloc = inside, legendpos = %str(HALIGN = right VALIGN = top), 
+ ystart = 1, yend = 0, yinc = -0.05, 
+ xlab = %str(Days since diagnosing), 
+ xstart = 0, xend = 30, xinc = (3 5 10 15 20 25 30)); 
+ proc sgrender data = ple template = kmplot; 
+run; 
+ods graphics off;
+
+ods listing gpath="" image_dpi=500;
+ods graphics on/LINEPATTERNOBSMAX=12200;
+%kmplot0(time = t, survival = surv, censored = censored, 
+ tatrisk = t, natrisk = atrisk,  atevent = atevent, group = group, linethick = 1, 
+ title1 = %str(), 
+ title2 = %str(), 
+ ylab = %str( ), 
+ legendloc = inside, legendpos = %str(HALIGN = right VALIGN = top), 
+ ystart = 1, yend = 0.9, yinc = -0.05, 
+ xlab = %str( ), 
+ xstart = 0, xend = 30, xinc = (3 5 10 15 20 25 30)); 
+ proc sgrender data = ple template = kmplot; 
+run; 
+ods graphics off;
