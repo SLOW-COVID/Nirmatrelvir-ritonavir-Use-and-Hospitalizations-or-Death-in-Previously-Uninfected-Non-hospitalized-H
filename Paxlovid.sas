@@ -14,6 +14,23 @@ run;
 %match(age5 Race Sex bmis CCI2yrs DistrictNumberFY17 vaccin);
 ods graphics off;
 
+/******Table 1*******/
+%macro continue(name);
+data table2;set table1;keep ScrSSN &name. drug;where &name. ne .;run;
+proc sort data=table2;by drug;run;
+proc univariate data=table2 normal;by drug;
+var &name.;qqplot /normal (mu=est sigma=est);
+run;
+proc means data=table2 MAXDEC=1 n median p25 p75;var &name.;class drug;run;
+proc npar1way data=table2 wilcoxon;var &name.;class drug;run;
+proc means data=table2 MAXDEC=1 n mean stddev sum;var &name.;class drug;run;
+PROC ANOVA data=table2;CLASS drug;MODEL &name. = drug;RUN;
+%mend continue;
+
+%macro nocontinue(var);
+data table2;set table1;keep ScrSSN &var. drug;run;
+proc freq  data=table2;table &var.*drug / norow nopercent chisq;run;
+%mend nocontinue;
 
 /******Figure 2*******/
 proc freq data=table2;
